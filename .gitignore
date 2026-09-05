@@ -1,0 +1,18 @@
+# Backend
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/researchos.db
+backend/storage/datasets/*
+backend/storage/artifacts/*
+!backend/storage/datasets/.gitkeep
+!backend/storage/artifacts/.gitkeep
+backend/.env
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# OS / editor
+.DS_Store
+*.log
