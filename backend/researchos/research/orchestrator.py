@@ -95,41 +95,49 @@ async def run_research(project_id: str) -> None:
 
         provider = get_llm_provider()
 
-        project.status = "PROFILING"
-        db.commit()
+        resuming = any(e.sequence_number == 0 and e.status == "COMPLETED" for e in project.experiments)
 
         dataset: Dataset = project.dataset
         df = load_dataset(dataset.storage_path)
-        profile = profile_dataset(df, project.target_column)
-        dataset.profile_json = profile
-        dataset.row_count = profile["rows"]
-        dataset.column_count = profile["columns"]
-        db.commit()
 
-        log_event(db, project.id, "Dataset profiling completed.", "profiling")
-        for warning in profile.get("warnings", []):
-            log_event(db, project.id, warning, "warning")
+        if resuming:
+            profile = dataset.profile_json
+            log_event(db, project.id, "Research resumed.", "resumed")
+        else:
+            project.status = "PROFILING"
+            db.commit()
+
+            profile = profile_dataset(df, project.target_column)
+            dataset.profile_json = profile
+            dataset.row_count = profile["rows"]
+            dataset.column_count = profile["columns"]
+            db.commit()
+
+            log_event(db, project.id, "Dataset profiling completed.", "profiling")
+            for warning in profile.get("warnings", []):
+                log_event(db, project.id, warning, "warning")
 
         numeric_cols, categorical_cols = _feature_columns(profile)
         train_df, val_df = split_dataset(
             df, project.target_column, settings.train_split_ratio, project.split_seed
         )
 
-        project.status = "BASELINE_RUNNING"
-        db.commit()
-        log_event(db, project.id, "Baseline Logistic Regression started.", "baseline")
+        if not resuming:
+            project.status = "BASELINE_RUNNING"
+            db.commit()
+            log_event(db, project.id, "Baseline Logistic Regression started.", "baseline")
 
-        baseline_spec = ExperimentSpec(
-            hypothesis="A deterministic linear baseline establishes the reference performance for this dataset.",
-            reasoning="Every ResearchOS project must begin with a non-LLM-selected deterministic baseline.",
-            model="logistic_regression",
-            preprocessing={"scale_numeric": True, "encode_categorical": True},
-            hyperparameters={},
-            primary_metric=project.primary_metric,
-            expected_outcome="Establishes the baseline the research loop will try to beat.",
-        )
-        await _execute_experiment(db, project, baseline_spec, sequence_number=0, numeric_cols=numeric_cols,
-                                   categorical_cols=categorical_cols, train_df=train_df, val_df=val_df)
+            baseline_spec = ExperimentSpec(
+                hypothesis="A deterministic linear baseline establishes the reference performance for this dataset.",
+                reasoning="Every ResearchOS project must begin with a non-LLM-selected deterministic baseline.",
+                model="logistic_regression",
+                preprocessing={"scale_numeric": True, "encode_categorical": True},
+                hyperparameters={},
+                primary_metric=project.primary_metric,
+                expected_outcome="Establishes the baseline the research loop will try to beat.",
+            )
+            await _execute_experiment(db, project, baseline_spec, sequence_number=0, numeric_cols=numeric_cols,
+                                       categorical_cols=categorical_cols, train_df=train_df, val_df=val_df)
 
         project.status = "RESEARCHING"
         db.commit()
@@ -138,6 +146,11 @@ async def run_research(project_id: str) -> None:
         sequence = completed_count
 
         while completed_count - 1 < project.experiment_budget:  # -1 excludes the baseline from the budget count
+            db.refresh(project)
+            if project.status == "PAUSED":
+                log_event(db, project.id, "Research paused.", "paused")
+                return
+
             context = _build_context(db, project)
 
             critique = None

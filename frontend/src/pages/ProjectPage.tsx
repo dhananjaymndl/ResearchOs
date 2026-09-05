@@ -68,11 +68,35 @@ export default function ProjectPage() {
   }, [projectId]);
 
   useEffect(() => {
-    if (project && !ACTIVE_STATUSES.includes(project.status) && intervalRef.current) {
+    if (!project) return;
+    const shouldPoll = ACTIVE_STATUSES.includes(project.status);
+    if (!shouldPoll && intervalRef.current) {
       window.clearInterval(intervalRef.current);
       intervalRef.current = null;
+    } else if (shouldPoll && !intervalRef.current) {
+      intervalRef.current = window.setInterval(refresh, 2500);
     }
-  }, [project]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.status]);
+
+  const [pauseToggling, setPauseToggling] = useState(false);
+
+  async function togglePause() {
+    if (!project) return;
+    setPauseToggling(true);
+    try {
+      if (project.status === "RESEARCHING") {
+        await api.pauseResearch(project.id);
+      } else if (project.status === "PAUSED") {
+        await api.resumeResearch(project.id);
+      }
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setPauseToggling(false);
+    }
+  }
 
   if (error) {
     return (
@@ -131,6 +155,11 @@ export default function ProjectPage() {
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {(project.status === "RESEARCHING" || project.status === "PAUSED") && (
+              <button className="btn btn-secondary" disabled={pauseToggling} onClick={togglePause}>
+                {project.status === "RESEARCHING" ? "Pause" : "Resume"}
+              </button>
+            )}
             {experiments.length > 0 && (
               <Link to={`/projects/${project.id}/report`}>
                 <button className="btn btn-secondary">View Report</button>

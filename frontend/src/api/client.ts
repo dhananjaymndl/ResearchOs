@@ -116,6 +116,10 @@ export const api = {
 
   startResearch: (projectId: string) =>
     request<{ started: boolean }>(`/projects/${projectId}/start`, { method: "POST" }),
+  pauseResearch: (projectId: string) =>
+    request<{ paused: boolean }>(`/projects/${projectId}/pause`, { method: "POST" }),
+  resumeResearch: (projectId: string) =>
+    request<{ resumed: boolean }>(`/projects/${projectId}/resume`, { method: "POST" }),
 
   getEvents: (projectId: string) => request<ResearchEvent[]>(`/projects/${projectId}/events`),
 
