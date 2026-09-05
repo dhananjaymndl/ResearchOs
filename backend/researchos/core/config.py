@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     max_critic_revisions: int = 2
     max_experiment_runtime_seconds: int = 600
 
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
     def ensure_dirs(self) -> None:
         self.dataset_storage_dir.mkdir(parents=True, exist_ok=True)
         self.artifact_storage_dir.mkdir(parents=True, exist_ok=True)

@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from researchos.api import datasets, events, experiments, projects, research
+from researchos.core.config import settings
 from researchos.core.database import init_db
 from researchos.core.logging import setup_logging
 
@@ -11,7 +12,7 @@ app = FastAPI(title="ResearchOS", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=settings.cors_origin_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

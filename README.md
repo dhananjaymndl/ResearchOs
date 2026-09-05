@@ -51,6 +51,33 @@ Backend settings live in `backend/.env` (see `backend/.env.example`):
 - `LLM_PROVIDER` — `mock` (default, no API key needed) or `anthropic` for LLM-assisted planning/critique/interpretation.
 - `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` — required only when `LLM_PROVIDER=anthropic`.
 - `DATABASE_URL` — defaults to a local SQLite file.
+- `CORS_ORIGINS` — comma-separated list of allowed frontend origins.
+
+Frontend settings live in `frontend/.env.local` (see `frontend/.env.example`):
+
+- `VITE_API_URL` — base URL of the backend API.
+
+## Deployment (Railway + Vercel)
+
+**Backend (Railway):**
+
+1. Create a new Railway service from this repo, with the service's root directory set to `backend/`.
+2. Railway auto-detects Python via `requirements.txt` and uses `backend/Procfile` to run `uvicorn researchos.main:app --host 0.0.0.0 --port $PORT`.
+3. Attach a persistent volume (e.g. mounted at `/data`) so SQLite and uploaded datasets/artifacts survive redeploys.
+4. Set environment variables:
+   - `DATABASE_URL=sqlite:////data/researchos.db` (or point at a Railway Postgres addon instead)
+   - `DATASET_STORAGE_DIR=/data/storage/datasets`
+   - `ARTIFACT_STORAGE_DIR=/data/storage/artifacts`
+   - `CORS_ORIGINS=https://<your-vercel-domain>.vercel.app`
+   - `LLM_PROVIDER`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` as needed
+5. Note your Railway service's public URL (e.g. `https://researchos-backend.up.railway.app`).
+
+**Frontend (Vercel):**
+
+1. Import this repo into Vercel with the project root set to `frontend/`.
+2. Build command `npm run build`, output directory `dist` (Vercel's Vite preset sets these automatically).
+3. Set the environment variable `VITE_API_URL` to your Railway backend URL from above.
+4. Deploy — Vercel gives you the public frontend domain to plug back into `CORS_ORIGINS` on Railway.
 
 ## Project layout
 
