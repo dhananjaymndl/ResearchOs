@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { MouseEvent } from "react";
 import { Link } from "react-router-dom";
 import { api, ProjectSummary } from "../api/client";
 import Topbar from "../components/Topbar";
@@ -17,13 +18,32 @@ function statusLabel(status: string): string {
 export default function Dashboard() {
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  useEffect(() => {
+  function load() {
+    setError(null);
     api
       .listProjects()
       .then(setProjects)
       .catch((e) => setError(e.message));
-  }, []);
+  }
+
+  useEffect(load, []);
+
+  async function handleDelete(e: MouseEvent, id: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm("Delete this project? This cannot be undone.")) return;
+    setDeletingId(id);
+    try {
+      await api.deleteProject(id);
+      setProjects((prev) => prev?.filter((p) => p.id !== id) ?? prev);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <div>
@@ -35,7 +55,14 @@ export default function Dashboard() {
         }
       />
       <div className="page">
-        {error && <div className="error-box">{error}</div>}
+        {error && (
+          <div className="error-box">
+            {error}
+            <button className="btn-link" style={{ marginLeft: 12 }} onClick={load}>
+              Retry
+            </button>
+          </div>
+        )}
 
         <div className="section-title">
           Recent Projects
@@ -67,7 +94,17 @@ export default function Dashboard() {
                 <div className="exp-title" style={{ fontSize: 15 }}>
                   {p.name}
                 </div>
-                <span className={statusBadgeClass(p.status)}>{statusLabel(p.status)}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span className={statusBadgeClass(p.status)}>{statusLabel(p.status)}</span>
+                  <button
+                    className="icon-btn"
+                    title="Delete project"
+                    disabled={deletingId === p.id}
+                    onClick={(e) => handleDelete(e, p.id)}
+                  >
+                    {deletingId === p.id ? "…" : "✕"}
+                  </button>
+                </div>
               </div>
               <div className="muted" style={{ marginTop: 10 }}>
                 {p.dataset_filename || "No dataset uploaded"}

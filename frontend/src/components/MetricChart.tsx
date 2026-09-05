@@ -7,6 +7,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import type { DotProps } from "recharts";
 
 interface Point {
   label: string;
@@ -21,6 +22,12 @@ export default function MetricChart({ points, metricLabel }: { points: Point[]; 
 
   if (data.length === 0) return null;
 
+  const values = data.map((d) => d.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const pad = Math.max((max - min) * 0.15, 0.005);
+  const domain: [number, number] = [min - pad, max + pad];
+
   return (
     <ResponsiveContainer width="100%" height={180}>
       <LineChart data={data} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
@@ -32,7 +39,15 @@ export default function MetricChart({ points, metricLabel }: { points: Point[]; 
           tickLine={false}
           axisLine={{ stroke: "#dadce0" }}
         />
-        <YAxis stroke="#5f6368" fontSize={11} tickLine={false} axisLine={false} width={44} />
+        <YAxis
+          stroke="#5f6368"
+          fontSize={11}
+          tickLine={false}
+          axisLine={false}
+          width={48}
+          domain={domain}
+          tickFormatter={(v: number) => v.toFixed(3)}
+        />
         <Tooltip
           contentStyle={{
             background: "#ffffff",
@@ -50,7 +65,20 @@ export default function MetricChart({ points, metricLabel }: { points: Point[]; 
           dataKey="value"
           stroke="#1a73e8"
           strokeWidth={2.5}
-          dot={{ r: 4, fill: "#ffffff", stroke: "#1a73e8", strokeWidth: 2 }}
+          dot={(props: DotProps & { payload?: { isBest?: boolean } }) => {
+            const isBest = props.payload?.isBest;
+            return (
+              <circle
+                key={props.key}
+                cx={props.cx}
+                cy={props.cy}
+                r={isBest ? 6 : 4}
+                fill={isBest ? "#188038" : "#ffffff"}
+                stroke={isBest ? "#188038" : "#1a73e8"}
+                strokeWidth={2}
+              />
+            );
+          }}
           activeDot={{ r: 6, fill: "#1a73e8" }}
         />
       </LineChart>

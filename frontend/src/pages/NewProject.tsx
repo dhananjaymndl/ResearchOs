@@ -3,6 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import Topbar from "../components/Topbar";
 
+function parseCsvPreview(text: string, maxRows = 5): { columns: string[]; rows: string[][] } {
+  const lines = text.split(/\r\n|\n/).filter((l) => l.length > 0);
+  const splitLine = (line: string) => line.split(",").map((cell) => cell.trim());
+  const columns = lines.length > 0 ? splitLine(lines[0]) : [];
+  const rows = lines.slice(1, 1 + maxRows).map(splitLine);
+  return { columns, rows };
+}
+
 export default function NewProject() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
@@ -10,9 +18,47 @@ export default function NewProject() {
   const [primaryMetric, setPrimaryMetric] = useState("f1");
   const [budget, setBudget] = useState(5);
   const [file, setFile] = useState<File | null>(null);
+  const [columns, setColumns] = useState<string[]>([]);
+  const [previewRows, setPreviewRows] = useState<string[][]>([]);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [targetColumn, setTargetColumn] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const MAX_SIZE_MB = 500;
+
+  async function handleFileChange(selected: File | null) {
+    setFile(selected);
+    setColumns([]);
+    setPreviewRows([]);
+    setTargetColumn("");
+    setFileError(null);
+    if (!selected) return;
+
+    if (!selected.name.toLowerCase().endsWith(".csv")) {
+      setFileError("Only CSV files are supported.");
+      setFile(null);
+      return;
+    }
+    if (selected.size > MAX_SIZE_MB * 1024 * 1024) {
+      setFileError(`File exceeds the ${MAX_SIZE_MB}MB limit.`);
+      setFile(null);
+      return;
+    }
+
+    try {
+      const headChunk = await selected.slice(0, 65536).text();
+      const { columns: cols, rows } = parseCsvPreview(headChunk);
+      if (cols.length === 0) {
+        setFileError("Couldn't read any columns from this file.");
+        return;
+      }
+      setColumns(cols);
+      setPreviewRows(rows);
+    } catch {
+      setFileError("Couldn't read this file.");
+    }
+  }
 
   const canSubmit = name.trim() && objective.trim() && file && targetColumn.trim() && !submitting;
 
@@ -67,18 +113,63 @@ export default function NewProject() {
           <div className="form-group">
             <label>Dataset Upload (CSV)</label>
             <div className="file-input-wrap">
-              <input type="file" accept=".csv" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+              <input
+                type="file"
+                accept=".csv"
+                onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
+              />
             </div>
-            <div className="form-hint">Phase 1 supports tabular binary classification, up to 500MB.</div>
+            {fileError ? (
+              <div className="form-hint form-hint-error">{fileError}</div>
+            ) : (
+              <div className="form-hint">Phase 1 supports tabular binary classification, up to {MAX_SIZE_MB}MB.</div>
+            )}
           </div>
+
+          {previewRows.length > 0 && (
+            <div className="form-group">
+              <label>Preview (first {previewRows.length} rows)</label>
+              <div className="csv-preview">
+                <table>
+                  <thead>
+                    <tr>
+                      {columns.map((c) => (
+                        <th key={c}>{c}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewRows.map((row, i) => (
+                      <tr key={i}>
+                        {row.map((cell, j) => (
+                          <td key={j}>{cell}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           <div className="form-group">
             <label>Target Column</label>
-            <input
-              value={targetColumn}
-              onChange={(e) => setTargetColumn(e.target.value)}
-              placeholder="e.g. churn, fraud, default"
-            />
+            {columns.length > 0 ? (
+              <select value={targetColumn} onChange={(e) => setTargetColumn(e.target.value)}>
+                <option value="" disabled>
+                  Select the column to predict…
+                </option>
+                {columns.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <select value="" disabled>
+                <option value="">Upload a dataset first…</option>
+              </select>
+            )}
           </div>
 
           <div className="field-row">

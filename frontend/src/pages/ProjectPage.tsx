@@ -79,7 +79,12 @@ export default function ProjectPage() {
       <div>
         <Topbar />
         <div className="page">
-          <div className="error-box">{error}</div>
+          <div className="error-box">
+            {error}
+            <button className="btn-link" style={{ marginLeft: 12 }} onClick={refresh}>
+              Retry
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -125,7 +130,14 @@ export default function ProjectPage() {
               {project.objective}
             </div>
           </div>
-          <span className={statusBadgeClass(project.status)}>{project.status.replace(/_/g, " ")}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {experiments.length > 0 && (
+              <Link to={`/projects/${project.id}/report`}>
+                <button className="btn btn-secondary">View Report</button>
+              </Link>
+            )}
+            <span className={statusBadgeClass(project.status)}>{project.status.replace(/_/g, " ")}</span>
+          </div>
         </div>
 
         {/* B. Dataset Summary */}

@@ -55,17 +55,25 @@ export default function ExperimentDetail() {
   const [exp, setExp] = useState<ExperimentDetailType | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  function load() {
     if (!experimentId) return;
+    setError(null);
     api.getExperiment(experimentId).then(setExp).catch((e) => setError(e.message));
-  }, [experimentId]);
+  }
+
+  useEffect(load, [experimentId]);
 
   if (error)
     return (
       <div>
         <Topbar />
         <div className="page">
-          <div className="error-box">{error}</div>
+          <div className="error-box">
+            {error}
+            <button className="btn-link" style={{ marginLeft: 12 }} onClick={load}>
+              Retry
+            </button>
+          </div>
         </div>
       </div>
     );
